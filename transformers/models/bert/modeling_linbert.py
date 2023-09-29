@@ -241,15 +241,16 @@ class BertSelfAttention(nn.Module):
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
 
+        if attention_mask is not None:
+            # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
+            inverted_mask = attention_mask == 0
+            key_layer = key_layer.transpose(-1,-2).masked_fill_(~inverted_mask, 0).transpose(-1, -2)
+            value_layer = value_layer.transpose(-1,-2).masked_fill_(~inverted_mask, 0).transpose(-1, -2)   
+            #attention_scores = attention_scores + attention_mask
+
         if self.modified:
-            print('before')
-            print(key_layer.size(), self.E.size())
-            print(value_layer.size(), self.F.size())
             key_layer = (key_layer.transpose(-1, -2) @ self.E).transpose(-1, -2)
             value_layer = (value_layer.transpose(-1, -2) @ self.F).transpose(-1, -2)
-        print('after')
-        print(key_layer.size())
-        print(value_layer.size())
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
         use_cache = past_key_value is not None
@@ -265,14 +266,9 @@ class BertSelfAttention(nn.Module):
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
-        print('att scores')
-        print(attention_scores.size())
 
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
-        if attention_mask is not None:
-            # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
-            print('no mask')
-            #attention_scores = attention_scores + attention_mask
+
 
         # Normalize the attention scores to probabilities.
         attention_probs = nn.functional.softmax(attention_scores, dim=-1)
@@ -692,6 +688,13 @@ class BertPreTrainedModel(PreTrainedModel):
         if isinstance(module, BertEncoder):
             module.gradient_checkpointing = value
 
+    def linearize(self, seq_len, k):
+        
+        for layer in self.bert.encoder.layer:
+            layer.attention.self.linearize(seq_len, k)
+
+        print('linearized')
+
 
 @dataclass
 class BertForPreTrainingOutput(ModelOutput):
@@ -918,8 +921,8 @@ class BertModel(BertPreTrainedModel):
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
+        
         extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(attention_mask, input_shape)
-
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
         if self.config.is_decoder and encoder_hidden_states is not None:
@@ -937,7 +940,7 @@ class BertModel(BertPreTrainedModel):
         # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
         # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
         head_mask = self.get_head_mask(head_mask, self.config.num_hidden_layers)
-
+        
         embedding_output = self.embeddings(
             input_ids=input_ids,
             position_ids=position_ids,
@@ -1466,13 +1469,6 @@ class BertForSequenceClassification(BertPreTrainedModel):
         expected_output=_SEQ_CLASS_EXPECTED_OUTPUT,
         expected_loss=_SEQ_CLASS_EXPECTED_LOSS,
     )
-
-    def linearize(self, seq_len, k):
-        
-        for layer in self.bert.encoder.layer:
-            layer.attention.self.linearize(seq_len, k)
-
-        print('linearized')
 
     def forward(
         self,
