@@ -104,9 +104,12 @@ BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 ]
 
 def init_E(tensor):
-    dim = tensor.shape[-1]
-    std = 1 / math.sqrt(dim)
-    tensor.uniform_(-std, std)
+    # dim = tensor.shape[-1]
+    # std = 1 / math.sqrt(dim)
+    # tensor.uniform_(-std, std)
+    tensor.fill_diagonal_(1.)
+    mask = tensor.sum(dim=1) == 0
+    tensor[mask] = 1e-10 * torch.rand_like(tensor[mask])
     return tensor
 
 

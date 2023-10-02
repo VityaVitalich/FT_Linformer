@@ -3,17 +3,17 @@ from transformers import TrainingArguments
 num_labels = 2
 max_len = 128
 padding_type = 'max_length'
-model_name = 'M-FAC/bert-tiny-finetuned-sst2'
+model_name = 'VityaVitalich/bert-base-cased-sst2' #'VityaVitalich/bert-tiny-sst2' #'bert-base-cased'#'M-FAC/bert-tiny-finetuned-sst2'
 
 linearize = True
-k = 64
+k = 16
 pre_training = True
-freeze = False
+freeze = True
 cuda_devices = 3
 
 training_args = TrainingArguments(
     output_dir='/home/FT_Linformer/experiments/sst/notebooks/results/',
-    learning_rate=3e-5,
+    learning_rate=3e-4,
     per_device_train_batch_size=128,
     per_device_eval_batch_size=128,
     num_train_epochs=10,
@@ -31,7 +31,7 @@ training_args = TrainingArguments(
 
 pre_training_args = TrainingArguments(
     output_dir = '/home/FT_Linformer/experiments/sst/notebooks/results/',
-    learning_rate=3e-5,
+    learning_rate=3e-4,
     per_device_train_batch_size=128,
     per_device_eval_batch_size=128,
     num_train_epochs=15,

@@ -1,3 +1,6 @@
 **/__pycache__/*
 results/
 transformers/*/__pycache__/
+data/
+bert-base-cased-sst2/
+__pycache__/
