@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import argparse
 import importlib
@@ -41,21 +41,35 @@ def create_mlm_data(tokenizer):
 
     return encoded_dataset_train, encoded_dataset_val, data_collator
 
+# def create_data(dataset, tokenizer):
+#     train_set = datasets.load_dataset(dataset, split='train').remove_columns(['idx'])
+#     val_set = datasets.load_dataset(dataset, split='validation').remove_columns(['idx'])
+
+#     dynamic_padding = True
+
+#     def tokenize_func(examples):
+#         return tokenizer(examples["sentence"], max_length=cur_config.max_len, padding=cur_config.padding_type, truncation=True)
+
+#     encoded_dataset_train = train_set.map(tokenize_func, batched=True)
+#     encoded_dataset_test = val_set.map(tokenize_func, batched=True)
+#     data_collator = DataCollatorWithPadding(tokenizer)
+
+#     return encoded_dataset_train, encoded_dataset_test, data_collator
+
 def create_data(dataset, tokenizer):
-    train_set = datasets.load_dataset(dataset, split='train').remove_columns(['idx'])
-    val_set = datasets.load_dataset(dataset, split='validation').remove_columns(['idx'])
+    train_set = datasets.load_dataset(dataset, split='train')
+    val_set = datasets.load_dataset(dataset, split='test')
 
     dynamic_padding = True
 
     def tokenize_func(examples):
-        return tokenizer(examples["sentence"], max_length=cur_config.max_len, padding=cur_config.padding_type, truncation=True)
+        return tokenizer(examples["text"], max_length=cur_config.max_len, padding=cur_config.padding_type, truncation=True)
 
     encoded_dataset_train = train_set.map(tokenize_func, batched=True)
     encoded_dataset_test = val_set.map(tokenize_func, batched=True)
     data_collator = DataCollatorWithPadding(tokenizer)
 
     return encoded_dataset_train, encoded_dataset_test, data_collator
-
 def freeze(model):
     for param in model.parameters():
         param.requires_grad = False
@@ -84,7 +98,8 @@ if __name__ == '__main__':
         
     if cur_config.pre_training:
         mlm_model = BertForMaskedLM.from_pretrained(cur_config.model_name)
-        mlm_model.linearize(cur_config.max_len, cur_config.k)
+        if cur_config.linearize:
+            mlm_model.linearize(cur_config.max_len, cur_config.k)
         if cur_config.freeze:
             freeze(mlm_model)
 

@@ -219,6 +219,7 @@ class BertSelfAttention(nn.Module):
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
+        bs, seq_len, d = hidden_states.size()
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -252,8 +253,10 @@ class BertSelfAttention(nn.Module):
             #attention_scores = attention_scores + attention_mask
 
         if self.modified:
-            key_layer = (key_layer.transpose(-1, -2) @ self.E).transpose(-1, -2)
-            value_layer = (value_layer.transpose(-1, -2) @ self.F).transpose(-1, -2)
+            cur_E = self.E[:seq_len, :]
+            cur_F = self.F[:seq_len, :]
+            key_layer = (key_layer.transpose(-1, -2) @ cur_E).transpose(-1, -2)
+            value_layer = (value_layer.transpose(-1, -2) @ cur_F).transpose(-1, -2)
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
         use_cache = past_key_value is not None
@@ -274,7 +277,8 @@ class BertSelfAttention(nn.Module):
 
 
         # Normalize the attention scores to probabilities.
-        attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+       # attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+        attention_probs = nn.functional.relu(attention_scores) / seq_len
 
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.
